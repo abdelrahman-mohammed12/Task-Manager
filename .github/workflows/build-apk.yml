@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 90
 
     steps:
-      - name: Check out repository
+      - name: Check out the repository
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -26,53 +26,44 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Install system dependencies
+      - name: Install system packages needed by Buildozer / python-for-android
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            git zip unzip build-essential ccache \
-            autoconf automake libtool libltdl-dev \
-            pkg-config cmake zlib1g-dev \
-            libncurses5-dev libncursesw5-dev \
-            libtinfo5 libffi-dev libssl-dev
+          sudo apt-get install -y --no-install-recommends \
+            git zip unzip build-essential ccache autoconf automake libtool libltdl-dev \
+            pkg-config cmake zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 \
+            libffi-dev libssl-dev
+
+      - name: Run unit tests (task logic)
+        run: python -m unittest discover -s tests -v
 
       - name: Install Buildozer
         run: |
-          python -m pip install --upgrade pip setuptools wheel
-          pip install buildozer==1.6.0 cython==0.29.34
+          python -m pip install --upgrade pip
+          pip install buildozer==1.5.0 cython==0.29.36
 
-      - name: Prepare CI Buildozer spec
-        run: |
-          cp buildozer.spec buildozer-ci.spec
-          sed -i 's/^android.ndk = .*/android.ndk = 28c/' buildozer-ci.spec
-          sed -i 's/^android.api = .*/android.api = 35/' buildozer-ci.spec
-          echo "===== Android settings used by CI ====="
-          grep -E '^(android.api|android.minapi|android.ndk|android.ndk_api|android.archs)' buildozer-ci.spec
-
-      - name: Cache Buildozer
+      - name: Cache Buildozer downloads (SDK, NDK, python-for-android)
         uses: actions/cache@v4
         with:
           path: |
             ~/.buildozer
             .buildozer
-          key: buildozer-ndk28-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
           restore-keys: |
-            buildozer-ndk28-${{ runner.os }}-
+            buildozer-${{ runner.os }}-
 
       - name: Build debug APK
-        run: |
-          buildozer -v -f buildozer-ci.spec android debug
+        run: buildozer -v android debug
 
-      - name: Prepare APK
+      - name: Name the APK TaskManager.apk
         run: |
           mkdir -p dist
-          APK="$(find bin -maxdepth 1 -name '*.apk' -type f | head -n 1)"
-          test -n "$APK"
-          echo "APK: $APK"
+          APK="$(ls bin/*.apk | head -n 1)"
+          echo "Built: $APK"
           cp "$APK" dist/TaskManager.apk
-          ls -lh dist/TaskManager.apk
+          ls -lh dist
 
-      - name: Upload APK
+      - name: Upload TaskManager.apk
         uses: actions/upload-artifact@v4
         with:
           name: TaskManager-apk
