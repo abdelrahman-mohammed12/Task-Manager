@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.buildozer/
+bin/
+dist/
+venv/
+.venv/
+*.apk
+*.corrupt-*
